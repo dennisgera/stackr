@@ -6,17 +6,17 @@ import pandas as pd
 API_URL = "http://backend:8000"
 
 st.set_page_config(
-    page_title="Inventory Management System",
+    page_title="Stackr",
     page_icon="📦",
     layout="wide"
 )
 
 def main():
-    st.title("📦 Inventory Management System")
+    st.title("📦 Stackr")
 
     # Welcome message
     st.markdown("""
-        ## Welcome to your Inventory Management System!
+        ## Welcome to Stackr, your Inventory Management System!
         
         Use the sidebar to navigate between:
         - 📝 Add/Edit Items
