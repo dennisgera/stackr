@@ -1,11 +1,18 @@
-# frontend/pages/analytics.py
+# frontend/pages/2_analytics.py
 import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import timedelta
+
 
 API_URL = "http://backend:8000"
+
+st.set_page_config(
+    page_title="Analytics",
+    page_icon="📈",
+    layout="wide",
+)
 
 def load_items():
     response = requests.get(f"{API_URL}/items/")
@@ -19,7 +26,6 @@ def load_item_history(item_id: int):
         return response.json()
     return []
 
-st.set_page_config(page_title="Inventory Analytics", layout="wide")
 
 def main():
     st.title("Inventory Analytics")
@@ -59,32 +65,35 @@ def main():
                 ["Last Week", "Last Month", "Last 3 Months", "All Time"]
             )
             
-            # Filter data based on time range
-            now = datetime.now()
+            # Filter data based on time range using the timestamp's timezone
+            now = pd.Timestamp.now(tz=df["timestamp"].iloc[0].tz)
             if time_range == "Last Week":
-                df = df[df["timestamp"] > now - timedelta(days=7)]
+                df = df[df["timestamp"] > (now - timedelta(days=7))]
             elif time_range == "Last Month":
-                df = df[df["timestamp"] > now - timedelta(days=30)]
+                df = df[df["timestamp"] > (now - timedelta(days=30))]
             elif time_range == "Last 3 Months":
-                df = df[df["timestamp"] > now - timedelta(days=90)]
+                df = df[df["timestamp"] > (now - timedelta(days=90))]
             
             # Create metrics
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric(
-                    "Current Quantity",
-                    f"{df['quantity'].iloc[0]:.1f}",
-                    f"{df['quantity'].iloc[0] - df['quantity'].iloc[-1]:.1f}"
-                )
+                try:
+                    st.metric(
+                        "Current Quantity",
+                        f"{df['quantity'].iloc[0]:.1f}",
+                        f"{df['quantity'].iloc[0] - df['quantity'].iloc[-1]:.1f}"
+                    )
+                except IndexError:
+                    st.metric("Current Quantity", "No data", "0")
             with col2:
                 st.metric(
                     "Average Quantity",
-                    f"{df['quantity'].mean():.1f}"
+                    f"{df['quantity'].mean():.1f}" if not df.empty else "No data"
                 )
             with col3:
                 st.metric(
                     "Min Quantity",
-                    f"{df['quantity'].min():.1f}"
+                    f"{df['quantity'].min():.1f}" if not df.empty else "No data"
                 )
             
             # Create time series plot
@@ -99,6 +108,7 @@ def main():
             # Show detailed history
             st.subheader("Detailed History")
             detailed_df = df[["timestamp", "quantity", "updated_by"]].copy()
+            # Convert to local time for display
             detailed_df["timestamp"] = detailed_df["timestamp"].dt.strftime("%Y-%m-%d %H:%M")
             st.dataframe(detailed_df, use_container_width=True)
             
@@ -115,17 +125,18 @@ def main():
                 
                 overview_data.append({
                     "Item": item["name"],
-                    "Current Stock": df["quantity"].iloc[0],
-                    "Average Stock": df["quantity"].mean(),
-                    "Min Stock": df["quantity"].min(),
-                    "Max Stock": df["quantity"].max(),
+                    "Current Stock": df["quantity"].iloc[0] if not df.empty else 0,
+                    "Average Stock": df["quantity"].mean() if not df.empty else 0,
+                    "Min Stock": df["quantity"].min() if not df.empty else 0,
+                    "Max Stock": df["quantity"].max() if not df.empty else 0,
                     "Updates Count": len(df),
-                    "Last Updated": df["timestamp"].iloc[0]
+                    "Last Updated": df["timestamp"].iloc[0] if not df.empty else None
                 })
         
         if overview_data:
             overview_df = pd.DataFrame(overview_data)
-            overview_df["Last Updated"] = overview_df["Last Updated"].dt.strftime("%Y-%m-%d %H:%M")
+            # Format timestamp for display
+            overview_df["Last Updated"] = pd.to_datetime(overview_df["Last Updated"]).dt.strftime("%Y-%m-%d %H:%M")
             
             # Create bar chart of current stock levels
             fig = px.bar(

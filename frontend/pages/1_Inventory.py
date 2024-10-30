@@ -1,31 +1,45 @@
-# frontend/Home.py
+# frontend/pages/inventory.py
 import streamlit as st
 import requests
 import pandas as pd
 
+
 API_URL = "http://backend:8000"
 
 st.set_page_config(
-    page_title="Stackr",
-    page_icon="📦",
-    layout="wide"
+    page_title="Inventory Management",
+    page_icon="📊",
+    layout="wide",
 )
 
-def main():
-    st.title("📦 Stackr")
+def load_items():
+    try:
+        response = requests.get(f"{API_URL}/items/")
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except Exception:
+        return []
 
-    # Welcome message
-    st.markdown("""
-        ## Welcome to Stackr, your Inventory Management System!
-        
-        Use the sidebar to navigate between:
-        - 📝 Add/Edit Items
-        - 📊 Update Inventory
-        - 📈 View Analytics
-    """)
+def update_inventory(item_id: int, quantity: float, updated_by: str):
+    try:
+        response = requests.post(
+            f"{API_URL}/inventory/",
+            json={
+                "item_id": item_id,
+                "quantity": quantity,
+                "updated_by": updated_by
+            }
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def main():
+    st.title("📊 Inventory Management")
     
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Add Items", "Update Inventory", "Analytics"])
+    tab1, tab2 = st.tabs(["Add Items", "Update Inventory"])
     
     with tab1:
         st.header("Add New Item")
@@ -68,29 +82,6 @@ def main():
             st.error(f"Error connecting to the backend: {str(e)}")
     
     with tab2:
-        def load_items():
-            try:
-                response = requests.get(f"{API_URL}/items/")
-                if response.status_code == 200:
-                    return response.json()
-                return []
-            except Exception:
-                return []
-
-        def update_inventory(item_id: int, quantity: float, updated_by: str):
-            try:
-                response = requests.post(
-                    f"{API_URL}/inventory/",
-                    json={
-                        "item_id": item_id,
-                        "quantity": quantity,
-                        "updated_by": updated_by
-                    }
-                )
-                return response.status_code == 200
-            except Exception:
-                return False
-
         st.header("Update Inventory")
         
         # Load items
@@ -152,60 +143,6 @@ def main():
                 st.dataframe(df, use_container_width=True)
             else:
                 st.info("No inventory records available")
-    
-    with tab3:
-        st.header("Analytics")
-        
-        # Load items for analytics
-        items = load_items()
-        if not items:
-            st.warning("No items found. Please add items to view analytics.")
-        else:
-            # Item selection for analytics
-            item_names = {item["name"]: item["id"] for item in items}
-            selected_item_name = st.selectbox(
-                "Select Item for Analysis",
-                options=list(item_names.keys()),
-                key="analytics_select"
-            )
-            
-            if selected_item_name:
-                selected_item_id = item_names[selected_item_name]
-                
-                try:
-                    response = requests.get(f"{API_URL}/inventory/{selected_item_id}")
-                    if response.status_code == 200:
-                        records = response.json()
-                        if records:
-                            df = pd.DataFrame(records)
-                            df['timestamp'] = pd.to_datetime(df['timestamp'])
-                            
-                            # Metrics
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Current Quantity", f"{df['quantity'].iloc[0]:.1f}")
-                            with col2:
-                                st.metric("Average Quantity", f"{df['quantity'].mean():.1f}")
-                            with col3:
-                                st.metric("Min Quantity", f"{df['quantity'].min():.1f}")
-                            
-                            # Line chart
-                            st.line_chart(
-                                df.set_index('timestamp')['quantity']
-                            )
-                            
-                            # Detailed history
-                            st.subheader("History")
-                            history_df = df[['timestamp', 'quantity', 'updated_by']].copy()
-                            history_df['timestamp'] = history_df['timestamp'].dt.strftime("%Y-%m-%d %H:%M")
-                            st.dataframe(
-                                history_df.sort_values('timestamp', ascending=False),
-                                use_container_width=True
-                            )
-                        else:
-                            st.info("No inventory records found for this item.")
-                except Exception as e:
-                    st.error(f"Error loading inventory data: {str(e)}")
 
 if __name__ == "__main__":
     main()
