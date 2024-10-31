@@ -1,0 +1,38 @@
+# fly.toml app configuration file generated for stackr-cold-violet-2349 on 2024-10-31T08:53:56-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'stackr-cold-violet-2349'
+primary_region = 'gru'
+
+[build]
+  dockerfile = 'Dockerfile.prod'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "10s"
+  grace_period = "60s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+    
+[env]
+  PORT = "8080"
+  ENVIRONMENT = "production"
+  API_HOST = "https://stackr-cold-violet-2349.fly.dev"
+  PYTHONUNBUFFERED = "1"
+  LOG_LEVEL = "debug"
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

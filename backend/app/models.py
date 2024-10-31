@@ -1,3 +1,4 @@
+# backend/app/models.py
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, func
 from sqlalchemy.ext.declarative import declarative_base
 
