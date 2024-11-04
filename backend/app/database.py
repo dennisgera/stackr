@@ -1,3 +1,4 @@
+# backend/app/database.py
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import os

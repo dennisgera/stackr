@@ -1,4 +1,5 @@
 #!/bin/bash
+# start.sh
 set -e
 
 # Create required directories

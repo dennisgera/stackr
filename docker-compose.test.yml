@@ -1,0 +1,78 @@
+# docker-compose.test.yml
+version: '3.8'
+
+services:
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db-test:5432/inventory
+      - ENVIRONMENT=production 
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db-test:
+        condition: service_healthy
+    platform: linux/arm64
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - stackr_test_network
+    healthcheck:
+      # Use python to check health instead of curl
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_HOST=http://backend-test
+      - API_PORT=8000
+      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    depends_on:
+      backend-test:
+        condition: service_healthy
+    platform: linux/arm64
+    command: streamlit run Home.py --server.port 8501 --server.address 0.0.0.0
+    networks:
+      - stackr_test_network
+
+  db-test:
+    image: postgres:15.4-alpine
+    platform: linux/arm64
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with dev environment
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=inventory
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: postgres -c 'max_connections=100'
+    networks:
+      - stackr_test_network
+
+networks:
+  stackr_test_network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+    name: stackr_postgres_test_data

@@ -22,8 +22,21 @@ primary_region = 'gru'
   timeout = "10s"
   grace_period = "60s"
   method = "GET"
-  path = "/api/health"
+  path = "/health"
   protocol = "http"
+
+[http_service.concurrency]
+  type = "connections"
+  hard_limit = 550
+  soft_limit = 500
+
+[[http_service.ports]]
+  handlers = ["http"]
+  port = 80
+
+[[http_service.ports]]
+  handlers = ["tls", "http"]
+  port = "443"  
     
 [env]
   PORT = "8080"
