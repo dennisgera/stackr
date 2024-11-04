@@ -1,9 +1,15 @@
-# Dockerfile.prod
 FROM python:3.11-slim
 
-WORKDIR /app
+# Set environment variables
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_VERSION=1.7.0
 
-# Install system dependencies and tools
+# System deps
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -12,13 +18,18 @@ RUN apt-get update && apt-get install -y \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements files
-COPY backend/requirements.txt backend-requirements.txt
-COPY frontend/requirements.txt frontend-requirements.txt
+# Install poetry
+RUN pip install "poetry==$POETRY_VERSION"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r backend-requirements.txt \
-    && pip install --no-cache-dir -r frontend-requirements.txt
+# Set working directory
+WORKDIR /app
+
+# Copy poetry files
+COPY pyproject.toml poetry.lock* ./
+
+# Install dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi
 
 # Create necessary directories
 RUN mkdir -p /var/log/supervisor \
