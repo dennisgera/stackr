@@ -1,7 +1,7 @@
 services:
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -13,13 +13,15 @@ services:
       db:
         condition: service_healthy
     platform: linux/arm64
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
     networks:
       - stackr_network
 
   frontend:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8501:8501"
@@ -31,7 +33,10 @@ services:
     depends_on:
       - backend
     platform: linux/arm64
+    working_dir: /app/frontend
     command: streamlit run Home.py --server.port 8501 --server.address 0.0.0.0
+    volumes:
+      - .:/app
     networks:
       - stackr_network
 

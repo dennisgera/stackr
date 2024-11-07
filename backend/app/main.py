@@ -1,8 +1,6 @@
 # backend/app/main.py
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from datetime import datetime
 from requests import Request
 from sqlalchemy.orm import Session
@@ -11,7 +9,7 @@ import logging
 import os
 from . import schemas, crud
 from .database import SessionLocal
-from typing import List, Type, TypeVar
+from typing import List, Optional
 
 # Configure logging
 logging.basicConfig(
@@ -19,29 +17,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Create type variables for generic type hints
-SchemaType = TypeVar("SchemaType")
-
-def serialize_sqlalchemy(db_model: any, schema_model: Type[SchemaType]) -> dict:
-    """
-    Generic function to convert SQLAlchemy model to Pydantic model and then to dict
-    """
-    # First convert to Pydantic model
-    pydantic_model = schema_model.model_validate(db_model)
-    
-    # Then convert to dict with datetime handling
-    return jsonable_encoder(pydantic_model)
-
-def create_json_response(content: any, status_code: int = 200) -> JSONResponse:
-    """
-    Create a consistent JSON response with proper datetime handling
-    """
-    return JSONResponse(
-        content=jsonable_encoder(content),
-        status_code=status_code,
-        media_type="application/json"
-    )
 
 # Create an API router
 api_router = APIRouter()
@@ -55,27 +30,17 @@ def get_db():
 
 @api_router.get("/items/", response_model=List[schemas.Item])
 async def read_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    logger.info(f"Handling GET /items/ request with skip={skip}, limit={limit}")
+    logger.info("Handling GET /items/ request")
     try:
-        items = crud.get_items(db, skip=skip, limit=limit)
-        result = [serialize_sqlalchemy(item, schemas.Item) for item in items]
-        logger.info(f"Successfully retrieved {len(items)} items")
-        logger.info(f"Returning items: {result}")  # Add this for debugging
-        return create_json_response(result)
+        return crud.get_items(db, skip=skip, limit=limit)
     except Exception as e:
-        logger.error(f"Error fetching items: {str(e)}")
-        return create_json_response(
-            {"detail": str(e)},
-            status_code=500
-        )
+        logger.error(f"Error in /items/: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/items/", response_model=schemas.Item)
 def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)):
     try:
-        db_item = crud.create_item(db=db, item=item)
-        return create_json_response(
-            serialize_sqlalchemy(db_item, schemas.Item)
-        )
+        return crud.create_item(db=db, item=item)
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -85,11 +50,7 @@ def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)):
 @api_router.get("/inventory/{item_id}", response_model=List[schemas.InventoryRecord])
 def read_item_inventory(item_id: int, db: Session = Depends(get_db)):
     try:
-        records = crud.get_item_inventory_history(db, item_id=item_id)
-        return create_json_response([
-            serialize_sqlalchemy(record, schemas.InventoryRecord)
-            for record in records
-        ])
+        return crud.get_item_inventory_history(db, item_id=item_id)
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -99,14 +60,83 @@ def read_item_inventory(item_id: int, db: Session = Depends(get_db)):
 @api_router.post("/inventory/", response_model=schemas.InventoryRecord)
 def update_inventory(record: schemas.InventoryRecordCreate, db: Session = Depends(get_db)):
     try:
-        db_record = crud.create_inventory_record(db=db, record=record)
-        return create_json_response(
-            serialize_sqlalchemy(db_record, schemas.InventoryRecord)
-        )
+        return crud.create_inventory_record(db=db, record=record)
     except HTTPException as he:
         raise he
     except Exception as e:
         logger.error(f"Error updating inventory: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@api_router.post("/purchases/", response_model=schemas.Purchase)
+def create_purchase(
+    purchase: schemas.PurchaseCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new purchase with optional lot information"""
+    try:
+        return crud.create_purchase(db=db, purchase=purchase)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error creating purchase: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/purchases/", response_model=List[schemas.Purchase])
+def read_purchases(
+    skip: int = 0,
+    limit: int = 100,
+    item_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Get all purchases with optional item filtering"""
+    try:
+        return crud.get_purchases(db, skip=skip, limit=limit, item_id=item_id)
+    except Exception as e:
+        logger.error(f"Error fetching purchases: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/purchases/{purchase_id}", response_model=schemas.Purchase)
+def read_purchase(purchase_id: int, db: Session = Depends(get_db)):
+    """Get a specific purchase by ID"""
+    purchase = crud.get_purchase(db, purchase_id=purchase_id)
+    if purchase is None:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    return purchase
+
+@api_router.get("/lots/", response_model=List[schemas.Lot])
+def read_lots(
+    skip: int = 0,
+    limit: int = 100,
+    item_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Get all lots with optional item filtering"""
+    try:
+        return crud.get_lots(db, item_id=item_id, skip=skip, limit=limit)
+    except Exception as e:
+        logger.error(f"Error fetching lots: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/lots/{lot_id}", response_model=schemas.Lot)
+def read_lot(lot_id: int, db: Session = Depends(get_db)):
+    """Get a specific lot by ID"""
+    lot = crud.get_lot(db, lot_id=lot_id)
+    if lot is None:
+        raise HTTPException(status_code=404, detail="Lot not found")
+    return lot
+
+@api_router.get("/items/{item_id}/lots", response_model=List[schemas.Lot])
+def read_item_lots(
+    item_id: int,
+    exclude_empty: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Get available lots for a specific item"""
+    try:
+        return crud.get_available_lots(db, item_id=item_id, exclude_empty=exclude_empty)
+    except Exception as e:
+        logger.error(f"Error fetching item lots: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Create the FastAPI application
@@ -132,7 +162,7 @@ async def health_check():
                 "check_value": result
             }
             logger.info(f"Health check response: {response}")
-            return create_json_response(response)
+            return response
         finally:
             db.close()
     except Exception as e:
@@ -153,8 +183,6 @@ async def log_requests(request: Request, call_next):
     logger.info(f"Response Status: {response.status_code}")
     logger.info("====== Request End ======")
     return response
-
-
 
 # Configure CORS
 origins = []
@@ -179,4 +207,4 @@ app.add_middleware(
 )
 
 # Include the API router
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")

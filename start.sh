@@ -1,17 +1,21 @@
 #!/bin/bash
-# start.sh
 set -e
 
 # Create required directories
 mkdir -p /var/log/nginx
 mkdir -p /var/log/supervisor
 mkdir -p /run/nginx
+mkdir -p /var/lib/nginx/body
 mkdir -p /var/run/supervisor
 chmod 755 /var/run/supervisor
 
 # Debug: Print environment variables (excluding sensitive data)
 echo "Environment Configuration:"
 env | grep -v "DATABASE_URL" | grep -v "PASSWORD"
+
+# Test nginx configuration
+echo "Testing nginx configuration..."
+nginx -t
 
 # Debug: Test database connection
 echo "Testing database connection..."
@@ -31,7 +35,6 @@ def test_db_connection(max_retries=5):
         logger.error("DATABASE_URL not set")
         sys.exit(1)
     
-    # Convert postgres:// to postgresql:// if necessary
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://")
     
@@ -60,8 +63,10 @@ if not test_db_connection():
     sys.exit(1)
 EOF
 
+# Make sure nginx can write to its paths
+chown -R root:root /var/log/nginx /var/lib/nginx /run/nginx
+chmod -R 755 /var/log/nginx /var/lib/nginx /run/nginx
+
 # Start supervisord with debug output
 echo "Starting supervisord..."
-/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
-
-# Note: The container will be kept running by supervisord
+exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf

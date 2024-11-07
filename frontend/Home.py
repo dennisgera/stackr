@@ -1,8 +1,6 @@
 # frontend/pages/Home.py
 import streamlit as st
 
-
-
 st.set_page_config(
     page_title="Stackr",
     page_icon="📦",
@@ -20,9 +18,10 @@ def main():
         - 🏠 Home
         - 📦 Inventory
         - 📈 Analytics
+        - 🛍️ Purchases
+        - 📤 Lots
     """)
 
-    
 
 if __name__ == "__main__":
     main()

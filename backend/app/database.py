@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import logging
 import time
 from urllib.parse import urlparse
-from . import models
+import models
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
