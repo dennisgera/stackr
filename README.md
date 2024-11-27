@@ -8,36 +8,6 @@
 - CI/CD: GitHub Actions
 - Monitoring: Sentry (free tier)
 
-## Project Structure
-```
-stackr/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py
-│   │   ├── models.py
-│   │   ├── schemas.py
-│   │   ├── crud.py
-│   │   └── database.py
-│   ├── tests/
-│   │   └── __init__.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── pages/
-│   │   ├── __init__.py
-│   │   ├── home.py
-│   │   ├── inventory.py
-│   │   └── analytics.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── docker-compose.yml
-├── .github/
-│   └── workflows/
-│       └── main.yml
-└── README.md
-```
-
 ## Initial Setup Steps
 
 1. Create and activate virtual environment:
